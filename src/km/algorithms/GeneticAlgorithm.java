@@ -11,13 +11,15 @@ public class GeneticAlgorithm extends Algorithm {
     private final TSPProblem problem;
     private final int populationSize;
     private final double mutationRate;
-    private final long stopTime; // czas wykonania w sekundach
+    private final double crossoverRate;
+    private final long stopTime;
 
-    public GeneticAlgorithm(TSPProblem problem, int populationSize, double mutationRate, long stopTime) {
+    public GeneticAlgorithm(TSPProblem problem, int populationSize, double mutationRate, long stopTime, double crossoverRate) {
         this.problem = problem;
         this.populationSize = populationSize;
         this.mutationRate = mutationRate;
-        this.stopTime = stopTime * 1000; // Konwersja na milisekundy
+        this.stopTime = stopTime * 1000;
+        this.crossoverRate = crossoverRate;
     }
 
     private long bestSolutionTime;
@@ -37,7 +39,14 @@ public class GeneticAlgorithm extends Algorithm {
             for (int i = 0; i < populationSize; i++) {
                 List<Integer> parent1 = selectParent(population);
                 List<Integer> parent2 = selectParent(population);
-                List<Integer> child = crossover(parent1, parent2);
+                List<Integer> child;
+
+                if (Math.random() < crossoverRate) {
+                    child = crossover(parent1, parent2);
+                } else {
+                    child = new ArrayList<>(parent1);
+                }
+
 
                 if (Math.random() < mutationRate) {
                     mutate(child);
