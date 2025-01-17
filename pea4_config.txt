@@ -4,5 +4,6 @@ populationSize=100
 generations=500
 mutationRate=0.01
 crossoverRate=0.8
+mutationMethod=invert
 testMode=0
 stopTime=1

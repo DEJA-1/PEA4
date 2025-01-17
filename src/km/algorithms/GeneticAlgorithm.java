@@ -13,13 +13,16 @@ public class GeneticAlgorithm extends Algorithm {
     private final double mutationRate;
     private final double crossoverRate;
     private final long stopTime;
+    private final String mutationMethod;
 
-    public GeneticAlgorithm(TSPProblem problem, int populationSize, double mutationRate, long stopTime, double crossoverRate) {
+
+    public GeneticAlgorithm(TSPProblem problem, int populationSize, double mutationRate, double crossoverRate, long stopTime, String mutationMethod) {
         this.problem = problem;
         this.populationSize = populationSize;
         this.mutationRate = mutationRate;
-        this.stopTime = stopTime * 1000;
         this.crossoverRate = crossoverRate;
+        this.stopTime = stopTime * 1000;
+        this.mutationMethod = mutationMethod;
     }
 
     private long bestSolutionTime;
@@ -120,10 +123,36 @@ public class GeneticAlgorithm extends Algorithm {
     }
 
     private void mutate(List<Integer> solution) {
+        if ("swap".equalsIgnoreCase(mutationMethod)) {
+            swapMutation(solution);
+        } else if ("invert".equalsIgnoreCase(mutationMethod)) {
+            invertMutation(solution);
+        } else {
+            throw new IllegalArgumentException("Nieznana metoda mutacji: " + mutationMethod);
+        }
+    }
+
+    private void swapMutation(List<Integer> solution) {
         Random random = new Random();
-        int index1 = random.nextInt(solution.size());
-        int index2 = random.nextInt(solution.size());
-        Collections.swap(solution, index1, index2);
+        int i = random.nextInt(solution.size());
+        int j = random.nextInt(solution.size());
+        Collections.swap(solution, i, j);
+    }
+
+    private void invertMutation(List<Integer> solution) {
+        Random random = new Random();
+        int i = random.nextInt(solution.size());
+        int j = random.nextInt(solution.size());
+        if (i > j) {
+            int temp = i;
+            i = j;
+            j = temp;
+        }
+        while (i < j) {
+            Collections.swap(solution, i, j);
+            i++;
+            j--;
+        }
     }
 
     private int calculateTotalDistance(List<Integer> solution) {

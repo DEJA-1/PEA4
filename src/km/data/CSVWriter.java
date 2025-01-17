@@ -30,13 +30,15 @@ public class CSVWriter {
     }
 
     // Zapisuje wiersz z wynikami, uwzględniając czas znalezienia najlepszego rozwiązania
-    public void writeRecord(String file, int run, int bestDistance, double relativeError, long bestSolutionTimeMs, long executionTimeMs, String bestPath) throws IOException {
-        writer.write(String.format("%s, %d, %d, %.2f, %d, %d, %s\n", file, run, bestDistance, relativeError, bestSolutionTimeMs, executionTimeMs, bestPath));
+    public void writeRecord(String file, String mutationMethod, int populationSize, int run, int bestDistance, double relativeError, long bestSolutionTimeMs, long executionTimeMs, String bestPath) throws IOException {
+        writer.write(String.format("%s, %s, %d, %d, %d, %.2f, %d, %d, %s\n",
+                file, mutationMethod, populationSize, run, bestDistance, relativeError, bestSolutionTimeMs, executionTimeMs, bestPath));
     }
 
     // Zapisuje średnie wartości dla pliku
-    public void writeAverageRecord(String file, double averageRelativeError, double averageBestSolutionTimeNs, double averageExecutionTimeMs) throws IOException {
-        writer.write(String.format("%s, -, -, %.2f, %.2f, %.2f, -\n", file, averageRelativeError, averageBestSolutionTimeNs / 1_000_000, averageExecutionTimeMs));
+    public void writeAverageRecord(String file, String mutationMethod, int populationSize, double averageRelativeError, double averageBestSolutionTimeNs, double averageExecutionTimeMs) throws IOException {
+        writer.write(String.format("%s, %s, %d, -, -, %.2f, %.2f, %.2f, -\n",
+                file, mutationMethod, populationSize, averageRelativeError, averageBestSolutionTimeNs / 1_000_000, averageExecutionTimeMs));
     }
 
     // Zamknięcie strumienia

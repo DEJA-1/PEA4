@@ -29,6 +29,7 @@ public class Main {
             int populationSize = configLoader.getIntProperty("populationSize");
             double mutationRate = configLoader.getDoubleProperty("mutationRate");
             double crossoverRate = configLoader.getDoubleProperty("crossoverRate");
+            String mutationMethod = configLoader.getProperty("mutationMethod");
             int stopTime = configLoader.getIntProperty("stopTime"); // w sekundach
             int testMode = configLoader.getIntProperty("testMode");
 
@@ -41,7 +42,7 @@ public class Main {
             // Inicjalizacja CSVWriter
             csvWriter = new CSVWriter();
             csvWriter.setFilePath(outputFilePath);
-            csvWriter.writeRecordHeader("Plik", "Iteracja", "Najlepsza odleglosc", "Blad wzgledny (%)", "Czas znalezienia najlepszego rozwiazania (ms)", "Czas wykonania (ms)", "Najlepsza sciezka");
+            csvWriter.writeRecordHeader("Plik", "Metoda mutacji", "Populacja", "Iteracja", "Najlepsza odleglosc", "Blad wzgledny (%)", "Czas znalezienia najlepszego rozwiazania (ms)", "Czas wykonania (ms)", "Najlepsza sciezka");
 
             // Wczytanie problemu TSP
             TSPProblem problem = TSPProblem.loadFromFile(inputFilePath);
@@ -49,11 +50,22 @@ public class Main {
             if (testMode == 1) {
                 // Tryb testowy: uruchamiany raz
                 System.out.println("Uruchamianie algorytmu genetycznego w trybie testowym...");
-                runGeneticAlgorithmOnce(problem, csvWriter, inputFilePath, populationSize, mutationRate, crossoverRate, stopTime, optimalDistance);
+                runGeneticAlgorithmOnce(
+                        problem, csvWriter, inputFilePath, populationSize, mutationRate, crossoverRate, stopTime, mutationMethod, optimalDistance);
             } else {
-                // Standardowy tryb: uruchamiany 10 razy
+                int[] populationSizes = {20, 50, 100};
+                String[] mutationMethods = {"swap", "invert"};
+
                 System.out.println("Uruchamianie algorytmu genetycznego w trybie standardowym...");
-                runGeneticAlgorithmMultipleTimes(problem, csvWriter, inputFilePath, populationSize, mutationRate, crossoverRate, stopTime, optimalDistance, 10);
+                for (String method : mutationMethods) {
+                    System.out.printf("Testowanie dla metody mutacji: %s\n", method);
+
+                    for (int size : populationSizes) {
+                        System.out.printf("Testowanie dla wielkości populacji: %d\n", size);
+                        runGeneticAlgorithmMultipleTimes(
+                                problem, csvWriter, inputFilePath, size, mutationRate, crossoverRate, stopTime, method, optimalDistance, 10);
+                    }
+                }
             }
 
         } catch (IOException e) {
@@ -69,8 +81,19 @@ public class Main {
         }
     }
 
-    private static void runGeneticAlgorithmOnce(TSPProblem problem, CSVWriter csvWriter, String inputFilePath, int populationSize, double mutationRate, double crossoverRate, int stopTime, int optimalDistance) throws IOException {
-        GeneticAlgorithm geneticAlgorithm = new GeneticAlgorithm(problem, populationSize, mutationRate, stopTime, crossoverRate);
+    private static void runGeneticAlgorithmOnce(
+            TSPProblem problem,
+            CSVWriter csvWriter,
+            String inputFilePath,
+            int populationSize,
+            double mutationRate,
+            double crossoverRate,
+            int stopTime,
+            String mutationMethod,  // Dodano parametr mutationMethod
+            int optimalDistance
+    ) throws IOException {
+        GeneticAlgorithm geneticAlgorithm = new GeneticAlgorithm(
+                problem, populationSize, mutationRate, crossoverRate, stopTime, mutationMethod);
 
         long startTime = System.currentTimeMillis();
         List<Integer> bestSolution = geneticAlgorithm.solve(optimalDistance);
@@ -82,10 +105,21 @@ public class Main {
         System.out.printf("Najlepsze rozwiazanie: %s\n", bestSolution);
         System.out.printf("Najlepsza odleglosc = %d, Blad wzgledny = %.2f%%, Czas wykonania = %d ms\n", bestDistance, relativeError, elapsedTime);
 
-        csvWriter.writeRecord(inputFilePath, 1, bestDistance, relativeError, elapsedTime, elapsedTime, bestSolution.toString());
+        csvWriter.writeRecord(inputFilePath, mutationMethod, populationSize, 1, bestDistance, relativeError, elapsedTime, elapsedTime, bestSolution.toString());
     }
 
-    private static void runGeneticAlgorithmMultipleTimes(TSPProblem problem, CSVWriter csvWriter, String inputFilePath, int populationSize, double mutationRate, double crossoverRate, int stopTime, int optimalDistance, int runs) throws IOException {
+    private static void runGeneticAlgorithmMultipleTimes(
+            TSPProblem problem,
+            CSVWriter csvWriter,
+            String inputFilePath,
+            int populationSize,
+            double mutationRate,
+            double crossoverRate,
+            int stopTime,
+            String mutationMethod,  // Dodano parametr mutationMethod
+            int optimalDistance,
+            int runs
+    ) throws IOException {
         int bestOverallDistance = Integer.MAX_VALUE;
         List<Integer> bestOverallPath = null;
 
@@ -94,7 +128,8 @@ public class Main {
         long totalBestSolutionTimeMs = 0;
 
         for (int run = 1; run <= runs; run++) {
-            GeneticAlgorithm geneticAlgorithm = new GeneticAlgorithm(problem, populationSize, mutationRate, stopTime, crossoverRate);
+            GeneticAlgorithm geneticAlgorithm = new GeneticAlgorithm(
+                    problem, populationSize, mutationRate, crossoverRate, stopTime, mutationMethod);
 
             long startTime = System.currentTimeMillis();
             List<Integer> bestSolution = geneticAlgorithm.solve(optimalDistance);
@@ -112,7 +147,7 @@ public class Main {
             System.out.printf("Iteracja %d: Najlepsza odleglosc = %d, Blad wzgledny = %.2f%%, Czas znalezienia najlepszego rozwiazania = %d ms, Czas wykonania = %d ms\n",
                     run, bestDistance, relativeError, bestSolutionTimeMs, elapsedTime);
 
-            csvWriter.writeRecord(inputFilePath, run, bestDistance, relativeError, bestSolutionTimeMs, elapsedTime, "-");
+            csvWriter.writeRecord(inputFilePath, mutationMethod, populationSize, run, bestDistance, relativeError, bestSolutionTimeMs, elapsedTime, "-");
 
             if (bestDistance < bestOverallDistance) {
                 bestOverallDistance = bestDistance;
@@ -127,9 +162,10 @@ public class Main {
         System.out.printf("Sredni blad wzgledny = %.2f%%, Sredni czas znalezienia najlepszego rozwiazania = %.2f ms, Sredni czas wykonania = %.2f ms\n",
                 averageRelativeError, averageBestSolutionTimeMs, averageExecutionTimeMs);
 
-        csvWriter.writeRecord(inputFilePath, -1, bestOverallDistance, -1, (long) averageBestSolutionTimeMs, (long) averageExecutionTimeMs, bestOverallPath.toString());
-        csvWriter.writeAverageRecord(inputFilePath, averageRelativeError, averageBestSolutionTimeMs * 1_000_000, averageExecutionTimeMs);
+        csvWriter.writeRecord(inputFilePath, mutationMethod, populationSize, -1, bestOverallDistance, -1, (long) averageBestSolutionTimeMs, (long) averageExecutionTimeMs, bestOverallPath.toString());
+        csvWriter.writeAverageRecord(inputFilePath, mutationMethod, populationSize, averageRelativeError, averageBestSolutionTimeMs * 1_000_000, averageExecutionTimeMs);
     }
+
 
 
 
