@@ -1,5 +1,5 @@
-inputData=ftv47.atsp
-outputFile=results.csv
+inputData=rbg403.atsp
+outputFile=results_4_0_population_MR_0_01_CR_0_8.csv
 populationSize=100
 generations=500
 mutationRate=0.01
@@ -7,3 +7,4 @@ crossoverRate=0.8
 mutationMethod=invert
 testMode=0
 stopTime=1
+changedValues=population

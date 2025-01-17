@@ -22,6 +22,8 @@ public class Main {
             optimalDistances.put("ftv170.atsp", 2755);
             optimalDistances.put("rbg403.atsp", 2465);
 
+            String[] inputFiles = {"ftv47.atsp", "ftv170.atsp", "rbg403.atsp"};
+
             // Wczytanie konfiguracji
             ConfigLoader configLoader = new ConfigLoader("pea4_config.txt");
             String inputFilePath = configLoader.getProperty("inputData");
@@ -32,6 +34,7 @@ public class Main {
             String mutationMethod = configLoader.getProperty("mutationMethod");
             int stopTime = configLoader.getIntProperty("stopTime"); // w sekundach
             int testMode = configLoader.getIntProperty("testMode");
+            String changedValues = configLoader.getProperty("changedValues");
 
             // Znalezienie optymalnego rozwiązania dla danego pliku
             Integer optimalDistance = optimalDistances.get(inputFilePath);
@@ -42,7 +45,7 @@ public class Main {
             // Inicjalizacja CSVWriter
             csvWriter = new CSVWriter();
             csvWriter.setFilePath(outputFilePath);
-            csvWriter.writeRecordHeader("Plik", "Metoda mutacji", "Populacja", "Iteracja", "Najlepsza odleglosc", "Blad wzgledny (%)", "Czas znalezienia najlepszego rozwiazania (ms)", "Czas wykonania (ms)", "Najlepsza sciezka");
+            csvWriter.writeRecordHeader("Plik", "Metoda mutacji", "Populacja", "Iteracja", "Najlepsza odleglosc", "Blad wzgledny (%)", "Czas znalezienia najlepszego rozwiazania (ns)", "Czas wykonania (ns)", "Najlepsza sciezka");
 
             // Wczytanie problemu TSP
             TSPProblem problem = TSPProblem.loadFromFile(inputFilePath);
@@ -53,18 +56,62 @@ public class Main {
                 runGeneticAlgorithmOnce(
                         problem, csvWriter, inputFilePath, populationSize, mutationRate, crossoverRate, stopTime, mutationMethod, optimalDistance);
             } else {
-                int[] populationSizes = {20, 50, 100};
+                int[] populationSizes = {50, 100, 200};
+                double[] mutationRates = {0.02, 0.05, 0.10};
                 String[] mutationMethods = {"swap", "invert"};
 
                 System.out.println("Uruchamianie algorytmu genetycznego w trybie standardowym...");
-                for (String method : mutationMethods) {
-                    System.out.printf("Testowanie dla metody mutacji: %s\n", method);
 
-                    for (int size : populationSizes) {
-                        System.out.printf("Testowanie dla wielkości populacji: %d\n", size);
-                        runGeneticAlgorithmMultipleTimes(
-                                problem, csvWriter, inputFilePath, size, mutationRate, crossoverRate, stopTime, method, optimalDistance, 10);
+                if ("mutation".equalsIgnoreCase(changedValues)) {
+                    for (String method : mutationMethods) {
+                        System.out.printf("Testowanie dla metody mutacji: %s\n", method);
+
+                        for (double rate : mutationRates) {
+                            System.out.printf("Testowanie dla współczynnika mutacji: %.2f\n", rate);
+                            for (String inputFile : inputFiles) {
+                                optimalDistance = optimalDistances.get(inputFile);
+                                if (optimalDistance == null) {
+                                    throw new IllegalArgumentException("Nieznane optymalne rozwiązanie dla pliku: " + inputFile);
+                                }
+
+                                problem = TSPProblem.loadFromFile(inputFile);
+                                runGeneticAlgorithmMultipleTimes(
+                                        problem, csvWriter, inputFile, populationSize, rate, crossoverRate, stopTime, method, optimalDistance, 10);
+                            }
+                        }
                     }
+                } else if ("population".equalsIgnoreCase(changedValues)) {
+                    for (String method : mutationMethods) {
+                        System.out.printf("Testowanie dla metody mutacji: %s\n", method);
+
+                        for (int size : populationSizes) {
+                            System.out.printf("Testowanie dla wielkości populacji: %d\n", size);
+                            for (String inputFile : inputFiles) {
+                                System.out.println("-----------------------------------");
+                                System.out.println("PLIK: " + inputFile);
+                                System.out.println("-----------------------------------");
+
+                                optimalDistance = optimalDistances.get(inputFile);
+                                if (optimalDistance == null) {
+                                    throw new IllegalArgumentException("Nieznane optymalne rozwiązanie dla pliku: " + inputFile);
+                                }
+
+                                stopTime = switch (inputFile) {
+                                    case "ftv47.atsp" -> 60;
+                                    case "ftv170.atsp" -> 120;
+                                    case "rbg403.atsp" -> 180;
+                                    default -> 0;
+                                };
+
+
+                                problem = TSPProblem.loadFromFile(inputFile);
+                                runGeneticAlgorithmMultipleTimes(
+                                        problem, csvWriter, inputFile, size, mutationRate, crossoverRate, stopTime, method, optimalDistance, 10);
+                            }
+                        }
+                    }
+                } else {
+                    throw new IllegalArgumentException("Nieznana wartość dla changedValues: " + changedValues);
                 }
             }
 
@@ -95,15 +142,15 @@ public class Main {
         GeneticAlgorithm geneticAlgorithm = new GeneticAlgorithm(
                 problem, populationSize, mutationRate, crossoverRate, stopTime, mutationMethod);
 
-        long startTime = System.currentTimeMillis();
+        long startTime = System.nanoTime();
         List<Integer> bestSolution = geneticAlgorithm.solve(optimalDistance);
-        long elapsedTime = System.currentTimeMillis() - startTime;
+        long elapsedTime = System.nanoTime() - startTime;
 
         int bestDistance = calculateTotalDistance(bestSolution, problem);
         double relativeError = calculateRelativeError(bestDistance, optimalDistance);
 
         System.out.printf("Najlepsze rozwiazanie: %s\n", bestSolution);
-        System.out.printf("Najlepsza odleglosc = %d, Blad wzgledny = %.2f%%, Czas wykonania = %d ms\n", bestDistance, relativeError, elapsedTime);
+        System.out.printf("Najlepsza odleglosc = %d, Blad wzgledny = %.2f%%, Czas wykonania = %d ns\n", bestDistance, relativeError, elapsedTime);
 
         csvWriter.writeRecord(inputFilePath, mutationMethod, populationSize, 1, bestDistance, relativeError, elapsedTime, elapsedTime, bestSolution.toString());
     }
@@ -124,30 +171,30 @@ public class Main {
         List<Integer> bestOverallPath = null;
 
         double totalRelativeError = 0.0;
-        long totalExecutionTimeMs = 0;
-        long totalBestSolutionTimeMs = 0;
+        long totalExecutionTimeNs = 0;
+        long totalBestSolutionTimeNs = 0;
 
         for (int run = 1; run <= runs; run++) {
             GeneticAlgorithm geneticAlgorithm = new GeneticAlgorithm(
                     problem, populationSize, mutationRate, crossoverRate, stopTime, mutationMethod);
 
-            long startTime = System.currentTimeMillis();
+            long startTime = System.nanoTime();
             List<Integer> bestSolution = geneticAlgorithm.solve(optimalDistance);
-            long elapsedTime = System.currentTimeMillis() - startTime;
+            long elapsedTime = System.nanoTime() - startTime;
 
             int bestDistance = calculateTotalDistance(bestSolution, problem);
             double relativeError = calculateRelativeError(bestDistance, optimalDistance);
 
-            long bestSolutionTimeMs = geneticAlgorithm.getBestSolutionTime();
-            totalBestSolutionTimeMs += bestSolutionTimeMs;
+            long bestSolutionTimeNs = geneticAlgorithm.getBestSolutionTime();
+            totalBestSolutionTimeNs += bestSolutionTimeNs;
 
             totalRelativeError += relativeError;
-            totalExecutionTimeMs += elapsedTime;
+            totalExecutionTimeNs += elapsedTime;
 
-            System.out.printf("Iteracja %d: Najlepsza odleglosc = %d, Blad wzgledny = %.2f%%, Czas znalezienia najlepszego rozwiazania = %d ms, Czas wykonania = %d ms\n",
-                    run, bestDistance, relativeError, bestSolutionTimeMs, elapsedTime);
+            System.out.printf("Iteracja %d: Najlepsza odleglosc = %d, Blad wzgledny = %.2f%%, Czas znalezienia najlepszego rozwiazania = %d ns, Czas wykonania = %d ns\n",
+                    run, bestDistance, relativeError, bestSolutionTimeNs, elapsedTime);
 
-            csvWriter.writeRecord(inputFilePath, mutationMethod, populationSize, run, bestDistance, relativeError, bestSolutionTimeMs, elapsedTime, "-");
+            csvWriter.writeRecord(inputFilePath, mutationMethod, populationSize, run, bestDistance, relativeError, bestSolutionTimeNs, elapsedTime, "-");
 
             if (bestDistance < bestOverallDistance) {
                 bestOverallDistance = bestDistance;
@@ -156,14 +203,14 @@ public class Main {
         }
 
         double averageRelativeError = totalRelativeError / runs;
-        double averageExecutionTimeMs = (double) totalExecutionTimeMs / runs;
-        double averageBestSolutionTimeMs = (double) totalBestSolutionTimeMs / runs;
+        double averageExecutionTimeNs = (double) totalExecutionTimeNs / runs;
+        double averageBestSolutionTimeNs = (double) totalBestSolutionTimeNs / runs;
 
-        System.out.printf("Sredni blad wzgledny = %.2f%%, Sredni czas znalezienia najlepszego rozwiazania = %.2f ms, Sredni czas wykonania = %.2f ms\n",
-                averageRelativeError, averageBestSolutionTimeMs, averageExecutionTimeMs);
+        System.out.printf("Sredni blad wzgledny = %.2f%%, Sredni czas znalezienia najlepszego rozwiazania = %.2f ns, Sredni czas wykonania = %.2f ns\n",
+                averageRelativeError, averageBestSolutionTimeNs, averageExecutionTimeNs);
 
-        csvWriter.writeRecord(inputFilePath, mutationMethod, populationSize, -1, bestOverallDistance, -1, (long) averageBestSolutionTimeMs, (long) averageExecutionTimeMs, bestOverallPath.toString());
-        csvWriter.writeAverageRecord(inputFilePath, mutationMethod, populationSize, averageRelativeError, averageBestSolutionTimeMs * 1_000_000, averageExecutionTimeMs);
+        csvWriter.writeRecord(inputFilePath, mutationMethod, populationSize, -1, bestOverallDistance, -1, (long) averageBestSolutionTimeNs, (long) averageExecutionTimeNs, bestOverallPath.toString());
+        csvWriter.writeAverageRecord(inputFilePath, mutationMethod, populationSize, averageRelativeError, averageBestSolutionTimeNs, averageExecutionTimeNs);
     }
 
 

@@ -29,12 +29,13 @@ public class GeneticAlgorithm extends Algorithm {
 
     @Override
     public List<Integer> solve(int optimalSolution) {
-        List<List<Integer>> population = initializePopulation();
+        List<List<Integer>> population = initializePopulationGreedy();
         List<Integer> bestSolution = null;
         int bestDistance = Integer.MAX_VALUE;
         bestSolutionTime = 0; // Reset czasu
 
         long startTime = System.currentTimeMillis();
+        long startTimeNano = System.nanoTime();
 
         while (System.currentTimeMillis() - startTime < stopTime) {
             List<List<Integer>> newPopulation = new ArrayList<>();
@@ -61,14 +62,14 @@ public class GeneticAlgorithm extends Algorithm {
                 if (childDistance < bestDistance) {
                     bestDistance = childDistance;
                     bestSolution = new ArrayList<>(child);
-                    bestSolutionTime = System.currentTimeMillis() - startTime; // Zapis czasu znalezienia najlepszego rozwiązania
+                    bestSolutionTime = System.nanoTime() - startTimeNano; // Zapis czasu znalezienia najlepszego rozwiązania
                 }
             }
 
             population = newPopulation;
         }
 
-        System.out.printf("Najlepsze rozwiązanie znaleziono po czasie: %d ms\n", bestSolutionTime);
+        System.out.printf("Najlepsze rozwiązanie znaleziono po czasie: %d ns\n", bestSolutionTime);
         System.out.printf("Najlepsza odległość: %d\n", bestDistance);
         return bestSolution;
     }
@@ -78,12 +79,44 @@ public class GeneticAlgorithm extends Algorithm {
     }
 
 
-    private List<List<Integer>> initializePopulation() {
+    private List<List<Integer>> initializePopulationGreedy() {
         List<List<Integer>> population = new ArrayList<>();
         for (int i = 0; i < populationSize; i++) {
-            population.add(generateRandomSolution(problem.getCitiesCount()));
+            population.add(generateGreedySolution());
         }
         return population;
+    }
+
+    private List<Integer> generateGreedySolution() {
+        int citiesCount = problem.getCitiesCount();
+        List<Integer> solution = new ArrayList<>();
+        boolean[] visited = new boolean[citiesCount];
+
+        Random random = new Random();
+        int currentCity = random.nextInt(citiesCount);
+        solution.add(currentCity);
+        visited[currentCity] = true;
+
+        for (int i = 1; i < citiesCount; i++) {
+            int nearestCity = -1;
+            int shortestDistance = Integer.MAX_VALUE;
+
+            for (int nextCity = 0; nextCity < citiesCount; nextCity++) {
+                if (!visited[nextCity]) {
+                    int distance = problem.getDistance(currentCity, nextCity);
+                    if (distance < shortestDistance) {
+                        nearestCity = nextCity;
+                        shortestDistance = distance;
+                    }
+                }
+            }
+
+            solution.add(nearestCity);
+            visited[nearestCity] = true;
+            currentCity = nearestCity;
+        }
+
+        return solution;
     }
 
     private List<Integer> selectParent(List<List<Integer>> population) {
