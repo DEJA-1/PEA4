@@ -1,0 +1,7 @@
+inputData=ftv47.atsp
+outputFile=results.csv
+populationSize=100
+generations=500
+mutationRate=0.1
+testMode=0
+stopTime=1
